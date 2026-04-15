@@ -999,7 +999,7 @@
     const putIntrinsic  = Math.max(K - S, 0);
     const callTimeValue = Math.max(res.callPrice - callIntrinsic, 0);
     const S_K = S / K;
-    let moneyStr = S_K > 1.005 ? '🟢 In The Money (ITM)' : S_K < 0.995 ? '🟡 Out of Money (OTM)' : '🔵 At The Money (ATM)';
+    let moneyStr = S_K > 1.005 ? 'In The Money (ITM)' : S_K < 0.995 ? 'Out of Money (OTM)' : 'At The Money (ATM)';
 
     setSum('sum-moneyness',   moneyStr);
     setSum('sum-cintrinsic',  '₹' + r4(callIntrinsic).toFixed(2));
