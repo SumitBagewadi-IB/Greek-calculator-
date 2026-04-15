@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Black-Scholes & Greeks Calculator — Indiabulls Securities</title>
+  <meta name="description" content="Free Black-Scholes options pricing calculator. Calculate Call/Put prices, Delta, Gamma, Theta, Vega, and Rho instantly for NSE/BSE options." />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:        #E31E24;
+      --red-dark:   #B71C1C;
+      --red-light:  #FFEBEE;
+      --text:       #1A1A2E;
+      --text-sub:   #4B5563;
+      --text-muted: #9CA3AF;
+      --bg:         #F3F4F6;
+      --card:       #FFFFFF;
+      --border:     #E5E7EB;
+      --green:      #16A34A;
+      --neg-red:    #DC2626;
+      --blue:       #2563EB;
+      --shadow:     0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+      --shadow-md:  0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+      --radius:     12px;
+    }
+
+    body { font-family: 'Segoe UI', Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── HEADER ── */
+    header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .header-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 62px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-logo {
+      width: 36px; height: 36px; background: var(--red); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -1px;
+    }
+    .brand-name { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.1; }
+    .brand-sub  { font-size: 11px; color: var(--text-sub); font-weight: 400; }
+    .header-cta {
+      background: var(--red); color: #fff; border: none; border-radius: 8px;
+      padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: background .2s;
+    }
+    .header-cta:hover { background: var(--red-dark); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #1A1A2E 0%, #2D2D4E 60%, #3D1A1A 100%);
+      padding: 40px 24px 36px;
+      text-align: center; color: #fff;
+    }
+    .hero-badge {
+      display: inline-block; background: rgba(227,30,36,.25); border: 1px solid rgba(227,30,36,.5);
+      color: #FF8A80; border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 600;
+      margin-bottom: 14px; letter-spacing: .04em;
+    }
+    .hero h1 { font-size: clamp(22px, 4vw, 32px); font-weight: 800; letter-spacing: -.5px; margin-bottom: 10px; }
+    .hero p { font-size: 15px; color: rgba(255,255,255,.7); max-width: 560px; margin: 0 auto; line-height: 1.6; }
+
+    /* ── MAIN LAYOUT ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
+
+    /* ── CARD ── */
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
+
+    /* ── INPUT SECTION ── */
+    .input-card { padding: 28px; margin-bottom: 20px; }
+    .input-card h2 { font-size: 15px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 20px; }
+
+    .inputs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 700px) { .inputs-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 440px) { .inputs-grid { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 13px; font-weight: 600; color: var(--text-sub);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tip-icon {
+      width: 16px; height: 16px; border-radius: 50%; background: var(--border);
+      color: var(--text-sub); font-size: 10px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: help; flex-shrink: 0; user-select: none;
+      transition: background .15s, color .15s;
+    }
+    .tip-icon:hover { background: #1A1A2E; color: #fff; }
+
+    /* JS-driven tooltip — rendered in <body>, never clipped */
+    #js-tooltip {
+      position: fixed; z-index: 9999; pointer-events: none;
+      background: #1A1A2E; color: #fff;
+      font-size: 12px; font-weight: 400; line-height: 1.55;
+      padding: 9px 13px; border-radius: 9px;
+      width: 230px; white-space: normal;
+      box-shadow: 0 6px 20px rgba(0,0,0,.25);
+      opacity: 0; transition: opacity .15s;
+    }
+    #js-tooltip.visible { opacity: 1; }
+    #js-tooltip::after {
+      content: ''; position: absolute;
+      border: 5px solid transparent;
+    }
+    #js-tooltip.dir-up::after {
+      top: 100%; left: 50%; transform: translateX(-50%);
+      border-top-color: #1A1A2E;
+    }
+    #js-tooltip.dir-down::after {
+      bottom: 100%; left: 50%; transform: translateX(-50%);
+      border-bottom-color: #1A1A2E;
+    }
+
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%; padding: 10px 40px 10px 12px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 15px; font-weight: 500; color: var(--text); background: #fff;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+      -moz-appearance: textfield;
+    }
+    .input-wrap input::-webkit-outer-spin-button,
+    .input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .input-wrap input:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(227,30,36,.1); }
+    .input-wrap input.error { border-color: var(--neg-red); box-shadow: 0 0 0 3px rgba(220,38,38,.1); }
+    .input-unit {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 12px; font-weight: 600; color: var(--text-muted); pointer-events: none;
+    }
+    .field-error { font-size: 11px; color: var(--neg-red); font-weight: 500; min-height: 16px; }
+
+    /* ── BOTTOM ROW ── */
+    .calc-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .moneyness-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      background: #F3F4F6; color: var(--text-muted); border: 1px solid var(--border);
+      transition: all .3s;
+    }
+    .moneyness-badge.itm  { background: #DCFCE7; color: #166534; border-color: #86EFAC; }
+    .moneyness-badge.otm  { background: #FEF9C3; color: #854D0E; border-color: #FDE047; }
+    .moneyness-badge.atm  { background: #DBEAFE; color: #1E40AF; border-color: #93C5FD; }
+    .moneyness-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    .calc-btn {
+      background: var(--red); color: #fff; border: none; border-radius: 10px;
+      padding: 12px 40px; font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(227,30,36,.3);
+    }
+    .calc-btn:hover  { background: var(--red-dark); box-shadow: 0 4px 12px rgba(227,30,36,.4); }
+    .calc-btn:active { transform: scale(.98); }
+    .calc-btn:disabled { background: #9CA3AF; box-shadow: none; cursor: not-allowed; }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite; display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESULTS ── */
+    .results-section { margin-bottom: 20px; }
+    .results-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .results-header h2 { font-size: 15px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .06em; }
+    .results-stamp {
+      font-size: 12px; color: var(--text-muted); display: none;
+    }
+
+    .greeks-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 900px) { .greeks-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 560px) { .greeks-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .greek-card {
+      background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius);
+      padding: 16px; cursor: default;
+      transition: box-shadow .2s, transform .2s, border-color .2s;
+      position: relative; overflow: hidden;
+    }
+    .greek-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .greek-card.has-value { border-color: transparent; box-shadow: var(--shadow-md); }
+    .greek-card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+      background: var(--border); border-radius: 3px 0 0 3px; transition: background .3s;
+    }
+    .greek-card.positive::before { background: var(--green); }
+    .greek-card.negative::before { background: var(--neg-red); }
+    .greek-card.neutral::before  { background: var(--blue); }
+
+    .gc-label {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .gc-value {
+      font-size: 22px; font-weight: 700; color: var(--text-muted);
+      letter-spacing: -.5px; margin-bottom: 4px; transition: color .3s;
+      min-height: 30px;
+    }
+    .gc-value.positive { color: var(--green); }
+    .gc-value.negative { color: var(--neg-red); }
+    .gc-value.neutral  { color: var(--text); }
+    .gc-sub { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+    /* skeleton pulse */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 4px; height: 28px; width: 80%;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    /* ── SUMMARY BAR ── */
+    .summary-bar {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 20px;
+    }
+    @media (max-width: 700px) { .summary-bar { grid-template-columns: repeat(2, 1fr); } }
+
+    .summary-tile {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .summary-tile .st-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .summary-tile .st-value { font-size: 18px; font-weight: 700; color: var(--text-muted); }
+    .summary-tile .st-value.active { color: var(--text); }
+
+    /* ── PCP SECTION ── */
+    .pcp-card { padding: 20px 24px; margin-bottom: 20px; }
+    .pcp-card h3 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .pcp-formula {
+      background: #F8F9FA; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; font-family: 'Courier New', monospace; font-size: 13px;
+      color: var(--text-sub); margin-bottom: 12px;
+    }
+    .pcp-result {
+      display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; color: var(--text-sub);
+    }
+    .pcp-dot {
+      width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted);
+    }
+    .pcp-dot.pass { background: var(--green); }
+    .pcp-dot.fail { background: var(--neg-red); }
+
+    /* ── PAYOFF CHART ── */
+    .chart-card { padding: 24px; margin-bottom: 20px; }
+    .chart-card h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .chart-card p  { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    .chart-wrap { position: relative; height: 240px; }
+
+    /* ── GREEKS EXPLAINER ── */
+    .explainer { margin-bottom: 20px; }
+    .explainer h2 { font-size: 15px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+    .explainer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 700px) { .explainer-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 440px) { .explainer-grid { grid-template-columns: 1fr; } }
+
+    .exp-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px;
+    }
+    .exp-card .exp-symbol {
+      font-size: 20px; font-weight: 800; color: var(--red); margin-bottom: 6px;
+    }
+    .exp-card .exp-name  { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .exp-card .exp-desc  { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+    .exp-card .exp-range { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-style: italic; }
+
+    /* ── DISCLAIMER ── */
+    .disclaimer {
+      background: #FFFBEB; border: 1px solid #FDE68A; border-radius: var(--radius);
+      padding: 14px 18px; font-size: 12px; color: #92400E; line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .disclaimer strong { color: #78350F; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--text); color: rgba(255,255,255,.6);
+      text-align: center; padding: 20px 24px; font-size: 12px;
+    }
+    footer a { color: rgba(255,255,255,.8); }
+    footer strong { color: #fff; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: #1A1A2E; color: #fff; padding: 10px 20px; border-radius: 24px;
+      font-size: 13px; font-weight: 500; z-index: 999;
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* fade-in animation for results */
+    @keyframes fadeUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+    .result-animate { animation: fadeUp .3s ease forwards; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <a class="brand" href="#">
+      <div class="brand-logo">IB</div>
+      <div>
+        <div class="brand-name">Indiabulls Securities</div>
+        <div class="brand-sub">Options Tools</div>
+      </div>
+    </a>
+    <a class="header-cta" href="#">Open Free Account</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">FREE TOOL</div>
+  <h1>Black-Scholes &amp; Greeks Calculator</h1>
+  <p>Price European options and compute all sensitivity Greeks using the Black-Scholes-Merton model. Built for NSE &amp; BSE derivatives traders.</p>
+</div>
+
+<main>
+
+  <!-- INPUT CARD -->
+  <div class="card input-card">
+    <h2>Market Parameters</h2>
+    <div class="inputs-grid">
+
+      <div class="field">
+        <label>
+          Spot Price
+          <span class="tip-icon" data-tip="Current market price of the underlying asset. For Nifty options, this is the index level (e.g. 22500).">?</span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="inp-spot" placeholder="e.g. 22500" step="0.01" min="0.01" inputmode="decimal" />
+          <span class="input-unit">₹</span>
+        </div>
+        <span class="field-error" id="err-spot"></span>
+      </div>
+
+      <div class="field">
+        <label>
+          Strike Price
+          <span class="tip-icon" data-tip="The price at which the option holder can buy (call) or sell (put) the underlying asset.">?</span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="inp-strike" placeholder="e.g. 22600" step="0.01" min="0.01" inputmode="decimal" />
+          <span class="input-unit">₹</span>
+        </div>
+        <span class="field-error" id="err-strike"></span>
+      </div>
+
+      <div class="field">
+        <label>
+          Days to Expiry
+          <span class="tip-icon" data-tip="Number of calendar days remaining until the option expires. Weekly Nifty options expire every Thursday.">?</span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="inp-expiry" placeholder="e.g. 15" step="0.1" min="0.1" inputmode="decimal" />
+          <span class="input-unit">days</span>
+        </div>
+        <span class="field-error" id="err-expiry"></span>
+      </div>
+
+      <div class="field">
+        <label>
+          Implied Volatility
+          <span class="tip-icon" data-tip="Annualized volatility as a percentage. India VIX (~14–25%) is a good reference for Nifty options. Higher vol = higher option price.">?</span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="inp-vol" placeholder="e.g. 18.5" step="0.01" min="0.01" inputmode="decimal" />
+          <span class="input-unit">%</span>
+        </div>
+        <span class="field-error" id="err-vol"></span>
+      </div>
+
+      <div class="field">
+        <label>
+          Risk-Free Rate
+          <span class="tip-icon" data-tip="Typically the RBI 91-day Treasury Bill yield (~6.5% for India). Use the current repo rate as a proxy.">?</span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="inp-rate" placeholder="e.g. 6.5" step="0.01" min="0" inputmode="decimal" />
+          <span class="input-unit">%</span>
+        </div>
+        <span class="field-error" id="err-rate"></span>
+      </div>
+
+      <div class="field">
+        <label>
+          Dividend Yield
+          <span class="tip-icon" data-tip="Expected annual dividend yield of the underlying. Use 0 for Nifty/BankNifty index options. Relevant for individual stock options.">?</span>
+        </label>
+        <div class="input-wrap">
+          <input type="number" id="inp-div" placeholder="e.g. 0" step="0.01" min="0" inputmode="decimal" />
+          <span class="input-unit">%</span>
+        </div>
+        <span class="field-error" id="err-div"></span>
+      </div>
+
+    </div>
+
+    <div class="calc-row">
+      <div class="moneyness-badge" id="moneyness-badge">
+        <span class="dot"></span>
+        <span id="moneyness-text">Enter spot &amp; strike</span>
+      </div>
+      <button class="calc-btn" id="calc-btn" onclick="runCalc()">
+        <div class="spinner" id="spinner"></div>
+        <span id="btn-text">Calculate</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- RESULTS SECTION -->
+  <div class="results-section">
+    <div class="results-header">
+      <h2>Greeks &amp; Option Prices</h2>
+      <span class="results-stamp" id="results-stamp"></span>
+    </div>
+
+    <div class="greeks-grid" id="greeks-grid">
+
+      <div class="greek-card" id="gc-callprice">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Theoretical fair value of the Call option. If market price > this, the option may be overpriced.">?</span>
+          Call Price
+        </div>
+        <div class="gc-value" id="val-callprice">—</div>
+        <div class="gc-sub">Fair value (₹)</div>
+      </div>
+
+      <div class="greek-card" id="gc-putprice">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Theoretical fair value of the Put option. Compare with market price to identify mispricing.">?</span>
+          Put Price
+        </div>
+        <div class="gc-value" id="val-putprice">—</div>
+        <div class="gc-sub">Fair value (₹)</div>
+      </div>
+
+      <div class="greek-card" id="gc-calldelta">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Change in call price per ₹1 move in the underlying. Delta of 0.45 means call gains ₹0.45 for every ₹1 rise in spot. Also approximately the probability of expiring ITM.">?</span>
+          Call Δ Delta
+        </div>
+        <div class="gc-value" id="val-calldelta">—</div>
+        <div class="gc-sub">₹ per ₹1 spot move</div>
+      </div>
+
+      <div class="greek-card" id="gc-putdelta">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Change in put price per ₹1 move in the underlying. Put Delta is always negative — the put gains when spot falls.">?</span>
+          Put Δ Delta
+        </div>
+        <div class="gc-value" id="val-putdelta">—</div>
+        <div class="gc-sub">₹ per ₹1 spot move</div>
+      </div>
+
+      <div class="greek-card" id="gc-gamma">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Rate of change of Delta per ₹1 move in spot. High Gamma (near ATM, near expiry) means Delta can flip quickly — gamma risk is real for option sellers.">?</span>
+          Γ Gamma
+        </div>
+        <div class="gc-value" id="val-gamma">—</div>
+        <div class="gc-sub">Δ change per ₹1 spot</div>
+      </div>
+
+      <div class="greek-card" id="gc-calltheta">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Time decay per calendar day for the call option. Almost always negative — the option loses this much value each day (all else equal). Option sellers benefit from theta.">?</span>
+          Call Θ Theta
+        </div>
+        <div class="gc-value" id="val-calltheta">—</div>
+        <div class="gc-sub">₹ per day decay</div>
+      </div>
+
+      <div class="greek-card" id="gc-puttheta">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Time decay per calendar day for the put option. Usually negative. The put loses this much value each day purely due to the passage of time.">?</span>
+          Put Θ Theta
+        </div>
+        <div class="gc-value" id="val-puttheta">—</div>
+        <div class="gc-sub">₹ per day decay</div>
+      </div>
+
+      <div class="greek-card" id="gc-vega">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Change in option price per 1% increase in implied volatility. Vega is identical for calls and puts. Both benefit when vol rises (long vega).">?</span>
+          ν Vega
+        </div>
+        <div class="gc-value" id="val-vega">—</div>
+        <div class="gc-sub">₹ per 1% vol change</div>
+      </div>
+
+      <div class="greek-card" id="gc-callrho">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Change in call price per 1% increase in risk-free rate. Calls have positive Rho — higher rates make calls more valuable (cost of carry). Small for short-dated options.">?</span>
+          Call ρ Rho
+        </div>
+        <div class="gc-value" id="val-callrho">—</div>
+        <div class="gc-sub">₹ per 1% rate change</div>
+      </div>
+
+      <div class="greek-card" id="gc-putrho">
+        <div class="gc-label">
+          <span class="tip-icon" data-tip="Change in put price per 1% increase in risk-free rate. Puts have negative Rho — higher rates make puts less valuable. More significant for long-dated options.">?</span>
+          Put ρ Rho
+        </div>
+        <div class="gc-value" id="val-putrho">—</div>
+        <div class="gc-sub">₹ per 1% rate change</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SUMMARY BAR -->
+  <div class="summary-bar">
+    <div class="summary-tile">
+      <div class="st-label">Moneyness</div>
+      <div class="st-value" id="sum-moneyness">—</div>
+    </div>
+    <div class="summary-tile">
+      <div class="st-label">Call Intrinsic Value</div>
+      <div class="st-value" id="sum-cintrinsic">—</div>
+    </div>
+    <div class="summary-tile">
+      <div class="st-label">Call Time Value</div>
+      <div class="st-value" id="sum-ctimevalue">—</div>
+    </div>
+    <div class="summary-tile">
+      <div class="st-label">Put Intrinsic Value</div>
+      <div class="st-value" id="sum-pintrinsic">—</div>
+    </div>
+  </div>
+
+  <!-- PUT-CALL PARITY -->
+  <div class="card pcp-card">
+    <h3>
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Put-Call Parity Check
+    </h3>
+    <div class="pcp-formula" id="pcp-formula">
+      C − P  =  S · e<sup>−qT</sup> − K · e<sup>−rT</sup>
+    </div>
+    <div class="pcp-result">
+      <div class="pcp-dot" id="pcp-dot"></div>
+      <span id="pcp-text">Calculate to verify put-call parity holds for your inputs.</span>
+    </div>
+  </div>
+
+  <!-- PAYOFF CHART -->
+  <div class="card chart-card">
+    <h3>Payoff at Expiry</h3>
+    <p>Net profit/loss for long call and long put at various spot prices on expiration day.</p>
+    <div class="chart-wrap">
+      <canvas id="payoff-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- GREEKS EXPLAINER -->
+  <div class="explainer">
+    <h2>Understanding the Greeks</h2>
+    <div class="explainer-grid">
+      <div class="exp-card">
+        <div class="exp-symbol">Δ</div>
+        <div class="exp-name">Delta</div>
+        <div class="exp-desc">Measures how much the option price changes for every ₹1 move in the underlying. Think of it as the "speed" of the option price.</div>
+        <div class="exp-range">Call: 0 to +1 · Put: −1 to 0</div>
+      </div>
+      <div class="exp-card">
+        <div class="exp-symbol">Γ</div>
+        <div class="exp-name">Gamma</div>
+        <div class="exp-desc">Rate of change of Delta. Highest for ATM options near expiry. High gamma means your delta exposure can shift rapidly — the "acceleration" of the option.</div>
+        <div class="exp-range">Always positive for option buyers</div>
+      </div>
+      <div class="exp-card">
+        <div class="exp-symbol">Θ</div>
+        <div class="exp-name">Theta</div>
+        <div class="exp-desc">Time decay per calendar day. Every day that passes, the option loses this much value (all else equal). Option sellers collect theta; buyers pay it.</div>
+        <div class="exp-range">Almost always negative for buyers</div>
+      </div>
+      <div class="exp-card">
+        <div class="exp-symbol">ν</div>
+        <div class="exp-name">Vega</div>
+        <div class="exp-desc">Change in option price per 1% increase in implied volatility. Identical for calls and puts. Both benefit when India VIX rises (long vega position).</div>
+        <div class="exp-range">Always positive for option buyers</div>
+      </div>
+      <div class="exp-card">
+        <div class="exp-symbol">ρ</div>
+        <div class="exp-name">Rho</div>
+        <div class="exp-desc">Sensitivity to 1% change in risk-free interest rate. Calls have positive Rho; puts negative. Least impactful for short-dated options.</div>
+        <div class="exp-range">Call: positive · Put: negative</div>
+      </div>
+      <div class="exp-card">
+        <div class="exp-symbol">⚖</div>
+        <div class="exp-name">Put-Call Parity</div>
+        <div class="exp-desc">Mathematical identity: C − P = S·e<sup>−qT</sup> − K·e<sup>−rT</sup>. Ensures no arbitrage. If violated in real markets, traders immediately exploit it.</div>
+        <div class="exp-range">Must hold in efficient markets</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    <strong>Disclaimer:</strong> This calculator is provided for <strong>educational and informational purposes only</strong> and does not constitute financial advice. Options trading involves substantial risk and is not suitable for all investors. Theoretical prices may differ from actual market prices. The Black-Scholes model assumes European-style options, constant volatility, and continuous trading — assumptions that may not hold in real markets. <strong>Investments in securities are subject to market risks; please read all related documents carefully before investing.</strong>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <strong>Indiabulls Securities Ltd.</strong> &nbsp;|&nbsp; Black-Scholes &amp; Greeks Calculator &nbsp;|&nbsp; For educational use only<br/>
+  <span style="font-size:11px;opacity:.6;">© 2026 Indiabulls Securities. All rights reserved.</span>
+</footer>
+
+<!-- TOAST -->
+<div id="toast"></div>
+<!-- JS TOOLTIP -->
+<div id="js-tooltip"></div>
+
+<script>
+  // ═══════════════════════════════════════════════════
+  //  MATH ENGINE — Black-Scholes-Merton Model
+  // ═══════════════════════════════════════════════════
+
+  // Standard Normal PDF
+  function normalPDF(x) {
+    return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+  }
+
+  // Standard Normal CDF — Abramowitz & Stegun (1964) rational approximation
+  // Maximum absolute error: 7.5 × 10⁻⁸
+  function normalCDF(x) {
+    const p  =  0.2316419;
+    const b1 =  0.319381530;
+    const b2 = -0.356563782;
+    const b3 =  1.781477937;
+    const b4 = -1.821255978;
+    const b5 =  1.330274429;
+    const t = 1.0 / (1.0 + p * Math.abs(x));
+    const poly = t * (b1 + t * (b2 + t * (b3 + t * (b4 + t * b5))));
+    const cdf = 1.0 - normalPDF(x) * poly;
+    return x >= 0 ? cdf : 1.0 - cdf;
+  }
+
+  function r4(v) { return Math.round(v * 10000) / 10000; }
+
+  /**
+   * Black-Scholes-Merton with continuous dividend yield
+   *
+   * @param {number} S     Spot price
+   * @param {number} K     Strike price
+   * @param {number} T     Time to expiry in YEARS
+   * @param {number} sigma Volatility as decimal (0.185 for 18.5%)
+   * @param {number} r     Risk-free rate as decimal
+   * @param {number} q     Dividend yield as decimal
+   */
+  function bsm(S, K, T, sigma, r, q) {
+    if (T <= 0 || sigma <= 0 || S <= 0 || K <= 0) return null;
+
+    const sqrtT = Math.sqrt(T);
+    const d1    = (Math.log(S / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    const d2    = d1 - sigma * sqrtT;
+
+    const eqT  = Math.exp(-q * T);
+    const erT  = Math.exp(-r * T);
+
+    const Nd1  = normalCDF(d1);
+    const Nd2  = normalCDF(d2);
+    const Nnd1 = normalCDF(-d1);   // = 1 - Nd1
+    const Nnd2 = normalCDF(-d2);   // = 1 - Nd2
+    const nd1  = normalPDF(d1);
+
+    // ── Option Prices ──
+    const callPrice = S * eqT * Nd1 - K * erT * Nd2;
+    const putPrice  = K * erT * Nnd2 - S * eqT * Nnd1;
+
+    // ── Delta ──
+    const callDelta = eqT * Nd1;
+    const putDelta  = eqT * (Nd1 - 1);          // = callDelta - e^(-qT)
+
+    // ── Gamma (same for call and put) ──
+    const gamma = eqT * nd1 / (S * sigma * sqrtT);
+
+    // ── Theta (per calendar day) ──
+    const thetaCommon = -S * sigma * eqT * nd1 / (2 * sqrtT);
+    const callTheta = (thetaCommon - r * K * erT * Nd2  + q * S * eqT * Nd1)  / 365;
+    const putTheta  = (thetaCommon + r * K * erT * Nnd2 - q * S * eqT * Nnd1) / 365;
+
+    // ── Vega (per 1% move in vol) ──
+    const vega = S * eqT * nd1 * sqrtT / 100;
+
+    // ── Rho (per 1% move in rate) ──
+    const callRho =  K * T * erT * Nd2  / 100;
+    const putRho  = -K * T * erT * Nnd2 / 100;
+
+    return {
+      callPrice: r4(callPrice), putPrice:  r4(putPrice),
+      callDelta: r4(callDelta), putDelta:  r4(putDelta),
+      gamma:     r4(gamma),
+      callTheta: r4(callTheta), putTheta:  r4(putTheta),
+      vega:      r4(vega),
+      callRho:   r4(callRho),   putRho:    r4(putRho),
+      d1: r4(d1), d2: r4(d2),
+      Nd1, Nd2, Nnd1, Nnd2
+    };
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  VALIDATION
+  // ═══════════════════════════════════════════════════
+
+  const RULES = {
+    'inp-spot':   { label:'Spot Price',        min:0.01,  max:1e6 },
+    'inp-strike': { label:'Strike Price',      min:0.01,  max:1e6 },
+    'inp-expiry': { label:'Days to Expiry',    min:0.1,   max:1095 },
+    'inp-vol':    { label:'Implied Volatility',min:0.01,  max:500 },
+    'inp-rate':   { label:'Risk-Free Rate',    min:0,     max:50 },
+    'inp-div':    { label:'Dividend Yield',    min:0,     max:100 },
+  };
+
+  function validate() {
+    let ok = true;
+    Object.entries(RULES).forEach(([id, rule]) => {
+      const inp = document.getElementById(id);
+      const err = document.getElementById('err-' + id.split('-')[1]);
+      const v   = parseFloat(inp.value);
+      if (inp.value.trim() === '' || isNaN(v)) {
+        err.textContent = rule.label + ' is required.';
+        inp.classList.add('error'); ok = false;
+      } else if (v < rule.min || v > rule.max) {
+        err.textContent = `Must be between ${rule.min} and ${rule.max}.`;
+        inp.classList.add('error'); ok = false;
+      } else {
+        err.textContent = '';
+        inp.classList.remove('error');
+      }
+    });
+    return ok;
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  MONEYNESS BADGE (live on input)
+  // ═══════════════════════════════════════════════════
+
+  function updateMoneyness() {
+    const S = parseFloat(document.getElementById('inp-spot').value);
+    const K = parseFloat(document.getElementById('inp-strike').value);
+    const badge = document.getElementById('moneyness-badge');
+    const text  = document.getElementById('moneyness-text');
+    if (!S || !K || isNaN(S) || isNaN(K)) {
+      badge.className = 'moneyness-badge';
+      text.textContent = 'Enter spot & strike';
+      return;
+    }
+    const ratio = S / K;
+    if (ratio > 1.005) {
+      badge.className = 'moneyness-badge itm';
+      text.textContent = `ITM — ${((ratio-1)*100).toFixed(2)}% in the money`;
+    } else if (ratio < 0.995) {
+      badge.className = 'moneyness-badge otm';
+      text.textContent = `OTM — ${((1-ratio)*100).toFixed(2)}% out of the money`;
+    } else {
+      badge.className = 'moneyness-badge atm';
+      text.textContent = `ATM — Near the money`;
+    }
+  }
+
+  ['inp-spot','inp-strike'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateMoneyness)
+  );
+
+  // ═══════════════════════════════════════════════════
+  //  CHART
+  // ═══════════════════════════════════════════════════
+
+  let payoffChart = null;
+
+  function buildChart(S, K, callPrem, putPrem) {
+    const ctx = document.getElementById('payoff-chart').getContext('2d');
+    const range = S * 0.25;
+    const step  = range / 50;
+    const spots = [];
+    const callPnL = [];
+    const putPnL  = [];
+
+    for (let sp = S - range; sp <= S + range; sp += step) {
+      spots.push(Math.round(sp));
+      callPnL.push(r4(Math.max(sp - K, 0) - callPrem));
+      putPnL.push( r4(Math.max(K - sp, 0) - putPrem));
+    }
+
+    if (payoffChart) payoffChart.destroy();
+
+    payoffChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: spots,
+        datasets: [
+          {
+            label: 'Long Call P&L (₹)',
+            data: callPnL,
+            borderColor: '#16A34A',
+            backgroundColor: 'rgba(22,163,74,.08)',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.1,
+          },
+          {
+            label: 'Long Put P&L (₹)',
+            data: putPnL,
+            borderColor: '#E31E24',
+            backgroundColor: 'rgba(227,30,36,.06)',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.1,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { usePointStyle: true, font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ₹${ctx.parsed.y.toFixed(2)}`
+            }
+          },
+          annotation: { /* strike line via beforeDraw */ }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Spot Price at Expiry (₹)', font: { size: 11 } },
+            ticks: {
+              maxTicksLimit: 10,
+              callback: v => '₹' + spots[v]
+            },
+            grid: { color: 'rgba(0,0,0,.05)' }
+          },
+          y: {
+            title: { display: true, text: 'Net P&L (₹)', font: { size: 11 } },
+            grid: { color: 'rgba(0,0,0,.05)' },
+            ticks: { callback: v => '₹' + v }
+          }
+        }
+      },
+      plugins: [{
+        id: 'strikeLines',
+        beforeDraw(chart) {
+          const { ctx, scales: { x, y }, chartArea } = chart;
+          // zero line is drawn by Chart.js
+          // Strike vertical line
+          const spotIdx = spots.findIndex(s => s >= K);
+          if (spotIdx < 0) return;
+          const xPos = x.getPixelForValue(spotIdx);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(100,100,100,.4)';
+          ctx.setLineDash([5, 4]);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(xPos, chartArea.top);
+          ctx.lineTo(xPos, chartArea.bottom);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(100,100,100,.7)';
+          ctx.font = '11px sans-serif';
+          ctx.fillText('Strike ₹' + K, xPos + 4, chartArea.top + 14);
+          ctx.restore();
+        }
+      }]
+    });
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  DISPLAY RESULTS
+  // ═══════════════════════════════════════════════════
+
+  const RESULT_MAP = [
+    { id:'callprice', key:'callPrice', prefix:'₹', class:'neutral' },
+    { id:'putprice',  key:'putPrice',  prefix:'₹', class:'neutral' },
+    { id:'calldelta', key:'callDelta', prefix:'',  class:'auto' },
+    { id:'putdelta',  key:'putDelta',  prefix:'',  class:'auto' },
+    { id:'gamma',     key:'gamma',     prefix:'',  class:'neutral' },
+    { id:'calltheta', key:'callTheta', prefix:'',  class:'auto' },
+    { id:'puttheta',  key:'putTheta',  prefix:'',  class:'auto' },
+    { id:'vega',      key:'vega',      prefix:'',  class:'neutral' },
+    { id:'callrho',   key:'callRho',   prefix:'',  class:'auto' },
+    { id:'putrho',    key:'putRho',    prefix:'',  class:'auto' },
+  ];
+
+  function setLoading(on) {
+    const btn  = document.getElementById('calc-btn');
+    const spin = document.getElementById('spinner');
+    const btxt = document.getElementById('btn-text');
+    btn.disabled   = on;
+    spin.style.display = on ? 'block' : 'none';
+    btxt.textContent   = on ? 'Calculating…' : 'Calculate';
+    if (on) {
+      RESULT_MAP.forEach(m => {
+        const v = document.getElementById('val-' + m.id);
+        v.innerHTML = '<div class="skeleton"></div>';
+        v.className = 'gc-value';
+      });
+    }
+  }
+
+  function displayResults(res, S, K, T, r, q) {
+    RESULT_MAP.forEach((m, i) => {
+      setTimeout(() => {
+        const card = document.getElementById('gc-' + m.id);
+        const val  = document.getElementById('val-' + m.id);
+        const v    = res[m.key];
+        let cls = 'neutral';
+        if (m.class === 'auto') cls = v > 0 ? 'positive' : v < 0 ? 'negative' : 'neutral';
+        else if (m.class === 'neutral') cls = 'neutral';
+        val.textContent = m.prefix + v.toFixed(4);
+        val.className   = 'gc-value result-animate ' + cls;
+        card.className  = 'greek-card has-value ' + cls;
+      }, i * 40);
+    });
+
+    // Summary bar
+    const callIntrinsic = Math.max(S - K, 0);
+    const putIntrinsic  = Math.max(K - S, 0);
+    const callTimeValue = Math.max(res.callPrice - callIntrinsic, 0);
+    const S_K = S / K;
+    let moneyStr = S_K > 1.005 ? '🟢 In The Money (ITM)' : S_K < 0.995 ? '🟡 Out of Money (OTM)' : '🔵 At The Money (ATM)';
+
+    setSum('sum-moneyness',   moneyStr);
+    setSum('sum-cintrinsic',  '₹' + r4(callIntrinsic).toFixed(2));
+    setSum('sum-ctimevalue',  '₹' + callTimeValue.toFixed(2));
+    setSum('sum-pintrinsic',  '₹' + r4(putIntrinsic).toFixed(2));
+
+    // Put-Call Parity
+    const lhs = res.callPrice - res.putPrice;
+    const rhs = S * Math.exp(-q * T) - K * Math.exp(-r * T);
+    const diff = Math.abs(lhs - rhs);
+    const dot  = document.getElementById('pcp-dot');
+    const txt  = document.getElementById('pcp-text');
+    const formulaEl = document.getElementById('pcp-formula');
+    formulaEl.innerHTML = `C − P  =  ${res.callPrice.toFixed(4)} − ${res.putPrice.toFixed(4)}  =  <strong>${lhs.toFixed(4)}</strong><br>S·e<sup>−qT</sup> − K·e<sup>−rT</sup>  =  <strong>${rhs.toFixed(4)}</strong>`;
+    if (diff < 0.01) {
+      dot.className = 'pcp-dot pass';
+      txt.textContent = `✓ Put-Call Parity holds — difference: ${diff.toFixed(6)} (within tolerance)`;
+    } else {
+      dot.className = 'pcp-dot fail';
+      txt.textContent = `⚠ Parity deviation: ${diff.toFixed(6)} — check inputs`;
+    }
+
+    // Timestamp
+    const stamp = document.getElementById('results-stamp');
+    stamp.style.display = 'block';
+    stamp.textContent = 'Calculated at ' + new Date().toLocaleTimeString();
+
+    // Chart
+    buildChart(S, K, res.callPrice, res.putPrice);
+  }
+
+  function setSum(id, val) {
+    const el = document.getElementById(id);
+    el.textContent = val;
+    el.className = 'st-value active';
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  MAIN CALCULATE
+  // ═══════════════════════════════════════════════════
+
+  function runCalc() {
+    if (!validate()) {
+      toast('Please fix the errors above.'); return;
+    }
+    setLoading(true);
+
+    // Tiny defer so spinner renders before sync calc
+    setTimeout(() => {
+      const S     = parseFloat(document.getElementById('inp-spot').value);
+      const K     = parseFloat(document.getElementById('inp-strike').value);
+      const days  = parseFloat(document.getElementById('inp-expiry').value);
+      const volPc = parseFloat(document.getElementById('inp-vol').value);
+      const rPc   = parseFloat(document.getElementById('inp-rate').value);
+      const qPc   = parseFloat(document.getElementById('inp-div').value);
+
+      const T     = days / 365;
+      const sigma = volPc  / 100;
+      const r     = rPc    / 100;
+      const q     = qPc    / 100;
+
+      const res = bsm(S, K, T, sigma, r, q);
+      setLoading(false);
+
+      if (!res) {
+        toast('Calculation error — check your inputs.'); return;
+      }
+
+      displayResults(res, S, K, T, r, q);
+    }, 50);
+  }
+
+  // Enter key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') runCalc();
+  });
+
+  // ═══════════════════════════════════════════════════
+  //  TOOLTIP ENGINE — position: fixed, never clipped
+  // ═══════════════════════════════════════════════════
+  (function () {
+    const tip   = document.getElementById('js-tooltip');
+    const GAP   = 10;   // px gap between icon and bubble
+    let   hideTimer;
+
+    function show(icon) {
+      const text = icon.getAttribute('data-tip');
+      if (!text) return;
+      clearTimeout(hideTimer);
+      tip.textContent = text;
+      tip.classList.remove('dir-up', 'dir-down', 'visible');
+      tip.style.removeProperty('opacity'); // never use inline opacity — let CSS class own it
+      tip.style.display = 'block';
+
+      const rect = icon.getBoundingClientRect();
+      const tw   = tip.offsetWidth;
+      const th   = tip.offsetHeight;
+
+      // Prefer above, fall back to below if not enough room
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const above      = spaceAbove >= th + GAP + 10;
+
+      let top, left;
+      if (above) {
+        top = rect.top - th - GAP;
+        tip.classList.add('dir-up');
+      } else {
+        top = rect.bottom + GAP;
+        tip.classList.add('dir-down');
+      }
+
+      // Horizontal: centre on icon, clamp to viewport
+      left = rect.left + rect.width / 2 - tw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+
+      tip.style.top  = top  + 'px';
+      tip.style.left = left + 'px';
+      tip.classList.add('visible');
+    }
+
+    function hide() {
+      tip.classList.remove('visible');
+      hideTimer = setTimeout(() => { tip.style.display = 'none'; }, 160);
+    }
+
+    // Delegate — works for any .tip-icon anywhere in the page
+    document.addEventListener('mouseover', e => {
+      const icon = e.target.closest('.tip-icon');
+      if (icon) show(icon);
+    });
+    document.addEventListener('mouseout', e => {
+      if (e.target.closest('.tip-icon')) hide();
+    });
+    document.addEventListener('scroll', hide, true);
+  }());
+
+  // Clear errors on input
+  Object.keys(RULES).forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      document.getElementById('err-' + id.split('-')[1]).textContent = '';
+      document.getElementById(id).classList.remove('error');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════
+  //  TOAST
+  // ═══════════════════════════════════════════════════
+
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  PRE-FILL EXAMPLE (ICICI Bank style per algotest docs)
+  // ═══════════════════════════════════════════════════
+
+  window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('inp-spot').value   = '22500';
+    document.getElementById('inp-strike').value = '22600';
+    document.getElementById('inp-expiry').value = '15';
+    document.getElementById('inp-vol').value    = '14.5';
+    document.getElementById('inp-rate').value   = '6.5';
+    document.getElementById('inp-div').value    = '0';
+    updateMoneyness();
+    // Auto-calculate on load so users see results immediately
+    runCalc();
+  });
+</script>
+</body>
+</html>
